@@ -1,0 +1,112 @@
+---
+title: "Puromycin Kill Curve Analysis"
+author: "Nathan Strozewski"
+date: "2023-04-05"
+output: html_document
+---
+
+## Intro
+
+To characterize the interactome of Capicua (Cic), I have transfected HEK293T cells with PLIX Human Cic-GFP or PLIX Fly Cic-GFP using a puromycin (puro)-selective and tetracycline (tet)-inducible system, with the intention to conduct affinity purification mass spectrometry (AP-MS). Initial attempts at this experiment utilized an –SBP tag in place of –GFP but yielded variable detection results via western blot (WB) and immunofluorescence (IF). Issues were attributed to variability in the antibody efficiency (Sigma MAB10764) and protocol sensitivity to extracting Cic protein without degradation. 
+
+An additional concern was that the concentration of puromycin during selection was too strong, permitting only cells with the highest resistance to survival - which may not necessarily be coupled with high Cic protein expression. Previous puromycin concentrations were 1ng/ml, which was determined via kill curve by Wootchelmine and Sayantanee, and also based upon the current literature. In this experiment, I will conduct a second kill curve in which non-transfected HEK293T are exposed to variable concentrations of puromycin and the cell confluency (percentage of plate covered in live cells) is measured. The goal is to determine whether a concentration of puromycin lower than 1ng/ml is appropriate for effectively selecting cells without inducing excessive, rapid selective pressure.
+
+## Analysis Code
+
+```{r load libraries}
+
+library(ggplot2)
+library(dplyr)
+library(readxl)
+
+```
+
+```{r set custom theme}
+
+custom_theme <- function() { 
+  font <- "Helvetica" # font selection
+    
+    theme_minimal() %+replace% # theme based on minimal with following replacements
+    
+    theme(panel.grid.major = element_blank(), # leave grids and axis ticks blank
+          panel.grid.minor = element_blank(),
+          axis.ticks = element_blank(),
+          axis.line = element_line(color = "black",
+                                   size = 1),
+          panel.border = element_rect(color = "black",
+                                      fill=NA,
+                                      size=1),
+          plot.title = element_text(family = font,
+                                    size = 20,
+                                    face = 'bold',
+                                    hjust = 0.5, # move title to center horizontally
+                                    vjust = 2), # move title up a wee bit
+          plot.subtitle = element_text(family = font,
+                                       size = 15,
+                                       hjust = 0.5),
+          plot.caption = element_text(family = font,
+                                      size = 10,
+                                      hjust = 1), # put caption in right corner
+          axis.title = element_text(family = font,
+                                    face = 'italic',
+                                    size = 15),
+          axis.text = element_text(family = font,
+                                   size = 10),
+          axis.text.x = element_text(margin = margin(t = 2, # top
+                                                     r = 2, # right
+                                                     b = 2, # bottom
+                                                     l = 2))) # left
+}
+
+```
+
+```{r load data}
+
+kill_curve <- read_xlsx("Puromycin_Kill_Curve_20230228.xlsx")
+
+```
+
+```{r format data}
+
+kill_curve <- kill_curve %>% 
+  group_by(puro_conc, time) %>% 
+  summarise(mean_confluency = mean(confluency),
+            sd_confluency = sd(confluency))
+
+```
+
+```{r plot data}
+
+kill_curve_plot <- ggplot(data = kill_curve,
+                          mapping = aes(x = time,
+                                        y = mean_confluency,
+                                        group = factor(puro_conc),
+                                        color = factor(puro_conc))) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(mapping = aes(x = time,
+                              y = mean_confluency,
+                              ymin = mean_confluency - sd_confluency,
+                              ymax = mean_confluency + sd_confluency,
+                              width = 0.5),
+                color = "black") +
+  labs(title = "HEK293T Puromycin Kill Curve",
+       caption = "n = 3",
+       x = "Time (hours)",
+       y = "Cell Confluency",
+       color = "Puromycin Concentration [ng/ml]") +
+  custom_theme()
+
+kill_curve_plot
+
+ggsave(kill_curve_plot,
+       filename = "HEK293T Puromycin Kill Curve_2023-04-05",
+       device = "pdf",
+       width = 9,
+       height = 5)
+
+```
+
+## Discussion
+
+All puromycin concentrations have a marked effect on cell survival within 24 hours, and the effect of puromycin on cell survival appears directly proportional to concentration. Concentrations of 1 or 0.75 ng/ml allow nearly zero cell survival within 24 hours. This result suggests that the puromycin concentration may be too harsh. A concentration of 0.25 or 0.5 ng/ml leads to a more gradual selection process. The effect of 0.25 ng/ml is similar to no treatment after 24 hours, so perhaps a concentration of 0.5 ng/ml is more appropriate.
